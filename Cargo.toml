@@ -1,0 +1,15 @@
+[package]
+name = "wgpu-bc6h-compression"
+version = "0.1.0"
+authors = ["Ashley Ruglys <ashley.ruglys@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bytemuck = "1.5.1"
+wgpu = "0.7.0"
+
+[dev-dependencies]
+ddsfile = "0.4.0"
+pollster = "0.2.1"
