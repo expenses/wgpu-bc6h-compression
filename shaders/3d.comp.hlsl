@@ -18,16 +18,21 @@
 
 static const float HALF_MAX = 65504.0f;
 static const uint PATTERN_NUM = 32;
-struct PushConstants {
-	uint3 TextureSizeInBlocks;
-};
-// We need a ConstantBuffer here as a workaround for
-// https://github.com/KhronosGroup/glslang/issues/1629.
-[[vk::push_constant]] ConstantBuffer<PushConstants> push_constants;
 
 [[vk::binding(0, 0)]] Texture3D SrcTexture;
 [[vk::binding(1, 0)]] SamplerState PointSampler;
 [[vk::binding(2, 0)]] RWStructuredBuffer<uint4> buffer;
+
+struct Constants {
+	uint3 TextureSizeInBlocks;
+};
+#if PUSH_CONSTANTS
+	// We need a ConstantBuffer here as a workaround for
+	// https://github.com/KhronosGroup/glslang/issues/1629.
+	[[vk::push_constant]] ConstantBuffer<Constants> constants;
+#else
+	[[vk::binding(3, 0)]] ConstantBuffer<Constants> constants;
+#endif
 
 float CalcMSLE(float3 a, float3 b)
 {
@@ -700,14 +705,14 @@ void EncodeP2Pattern(inout uint4 block, inout float blockMSLE, int pattern, floa
 	}
 }
 
-[numthreads(8, 8, 8)]
+[numthreads(4, 4, 4)]
 void main(uint3 groupID : SV_GroupID,
 	uint3 dispatchThreadID : SV_DispatchThreadID,
 	uint3 groupThreadID : SV_GroupThreadID)
 {
 	uint3 blockCoord = dispatchThreadID;
 
-	if (all(blockCoord < push_constants.TextureSizeInBlocks)) {
+	if (all(blockCoord < constants.TextureSizeInBlocks)) {
 		int2 xy = blockCoord.xy * 4;
 		int z = blockCoord.z;
 
@@ -758,8 +763,8 @@ void main(uint3 groupID : SV_GroupID,
 		EncodeP2Pattern(block, blockMSLE, bestPattern, texels);
 #endif
 
-		uint width = push_constants.TextureSizeInBlocks.x;
-		uint height = push_constants.TextureSizeInBlocks.y;
+		uint width = constants.TextureSizeInBlocks.x;
+		uint height = constants.TextureSizeInBlocks.y;
 		uint index = blockCoord.x + blockCoord.y * width + blockCoord.z * (width * height);
 		buffer[index] = block;
 	}

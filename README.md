@@ -24,8 +24,7 @@ them into [RenderDoc].
 [`wgpu::Features::TEXTURE_COMPRESSION_BC`] if you simply copy the buffer to a
 file as in the example.
 - Can use push constants with the `push_constant` feature.
-- Can compress 2D and 3D textures (structures for 3D textures are currently not
-written).
+- Can compress 2D and 3D textures.
 
 ## Unsupported
 

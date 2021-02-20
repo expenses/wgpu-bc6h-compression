@@ -20,6 +20,7 @@ static const uint PATTERN_NUM = 32;
 [[vk::binding(0, 0)]] Texture2D SrcTexture;
 [[vk::binding(1, 0)]] SamplerState PointSampler;
 [[vk::binding(2, 0)]] RWStructuredBuffer<uint4> buffer;
+
 struct Constants {
 	uint2 TextureSizeInBlocks;
 };
@@ -30,7 +31,6 @@ struct Constants {
 #else
 	[[vk::binding(3, 0)]] ConstantBuffer<Constants> constants;
 #endif
-
 
 float CalcMSLE(float3 a, float3 b)
 {
