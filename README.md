@@ -34,7 +34,7 @@ file as in the example.
 [wgpu-rs]: https://github.com/gfx-rs/wgpu-rs
 [BC6H]: https://en.wikipedia.org/wiki/S3_Texture_Compression#BC6H_and_BC7
 [GPURealTimeBC6H]: https://github.com/knarkowicz/gpurealtimebc6h
-[Real-Time BC6H Compression on GPU]: https://knarkowicz.ftoiles.wordpress.com/2016/03/knarkowicz_realtime_bc6h_gdc_2016.pdf
+[Real-Time BC6H Compression on GPU]: https://knarkowicz.files.wordpress.com/2016/03/knarkowicz_realtime_bc6h_gdc_2016.pdf
 [DirectDraw Surface]: https://en.wikipedia.org/wiki/DirectDraw_Surface
 [RenderDoc]: https://github.com/baldurk/renderdoc
 [`wgpu::Features`]: https://docs.rs/wgpu/0.7.0/wgpu/struct.Features.html
