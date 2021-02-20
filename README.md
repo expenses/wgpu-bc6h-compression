@@ -30,7 +30,7 @@ written).
 ## Unsupported
 
 - The shaders are designed with unsigned floating point values in mind, so
-[`Bc6hRgbUFloat`] textures are supported but not signed [`Bc6hRgbUFloat`] ones.
+[`Bc6hRgbUFloat`] textures are supported but not signed [`Bc6hRgbSFloat`] ones.
 
 [wgpu-rs]: https://github.com/gfx-rs/wgpu-rs
 [BC6H]: https://en.wikipedia.org/wiki/S3_Texture_Compression#BC6H_and_BC7
