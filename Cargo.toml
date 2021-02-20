@@ -13,3 +13,6 @@ wgpu = "0.7.0"
 [dev-dependencies]
 ddsfile = "0.4.0"
 pollster = "0.2.1"
+
+[features]
+push_constants = []

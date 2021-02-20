@@ -1,3 +1,6 @@
+#[cfg(not(feature = "push_constants"))]
+use wgpu::util::DeviceExt;
+
 pub struct Compressor2D {
     pub pipeline: wgpu::ComputePipeline,
     pub bind_group_layout: wgpu::BindGroupLayout,
@@ -5,7 +8,11 @@ pub struct Compressor2D {
 
 impl Compressor2D {
     pub fn new(device: &wgpu::Device) -> Self {
+        #[cfg(feature = "push_constants")]
+        let shader_bytes = wgpu::include_spirv!("../shaders/compiled/2d_push_constants.comp.spv");
+        #[cfg(not(feature = "push_constants"))]
         let shader_bytes = wgpu::include_spirv!("../shaders/compiled/2d.comp.spv");
+
         let shader = device.create_shader_module(&shader_bytes);
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -40,16 +47,30 @@ impl Compressor2D {
                     },
                     count: None,
                 },
+                #[cfg(not(feature = "push_constants"))]
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStage::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
             ],
         });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("wgpu-bc6h-compression 2d pipeline layout"),
             bind_group_layouts: &[&bind_group_layout],
-            push_constant_ranges: &[wgpu::PushConstantRange {
-                stages: wgpu::ShaderStage::COMPUTE,
-                range: 0..std::mem::size_of::<[u32; 2]>() as u32,
-            }],
+            push_constant_ranges: &[
+                #[cfg(feature = "push_constants")]
+                wgpu::PushConstantRange {
+                    stages: wgpu::ShaderStage::COMPUTE,
+                    range: 0..std::mem::size_of::<[u32; 2]>() as u32,
+                },
+            ],
         });
 
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -78,6 +99,13 @@ impl Compressor2D {
         debug_assert_eq!(params.extent.height % 4, 0);
         debug_assert_eq!(params.extent.depth, 1);
 
+        #[cfg(not(feature = "push_constants"))]
+        let compute_contant_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::bytes_of(&[width_in_blocks, height_in_blocks]),
+            usage: wgpu::BufferUsage::UNIFORM,
+        });
+
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: params.bind_group_label,
             layout: &self.bind_group_layout,
@@ -98,6 +126,11 @@ impl Compressor2D {
                     binding: 2,
                     resource: buffer.as_entire_binding(),
                 },
+                #[cfg(not(feature = "push_constants"))]
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: compute_contant_buffer.as_entire_binding(),
+                },
             ],
         });
 
@@ -105,6 +138,7 @@ impl Compressor2D {
             command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor::default());
         compute_pass.set_pipeline(&self.pipeline);
         compute_pass.set_bind_group(0, &bind_group, &[]);
+        #[cfg(feature = "push_constants")]
         compute_pass
             .set_push_constants(0, bytemuck::bytes_of(&[width_in_blocks, height_in_blocks]));
         compute_pass.dispatch(

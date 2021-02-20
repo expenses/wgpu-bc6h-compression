@@ -22,9 +22,15 @@ fn main() {
 
     let (device, queue) = pollster::block_on(adapter.request_device(
         &wgpu::DeviceDescriptor {
-            label: Some("device"),
+            label: None,
+
+            #[cfg(feature = "push_constants")]
             features: wgpu::Features::PUSH_CONSTANTS,
+            #[cfg(not(feature = "push_constants"))]
+            features: wgpu::Features::empty(),
+
             limits: wgpu::Limits {
+                #[cfg(feature = "push_constants")]
                 max_push_constant_size: 8,
                 ..Default::default()
             },

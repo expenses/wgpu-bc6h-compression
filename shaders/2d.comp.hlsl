@@ -3,7 +3,7 @@
 #pragma warning(disable : 3078) // "loop control variable conflicts with a previous declaration in the outer scope"
 
 // Whether to use P2 modes (4 endpoints) for compression. Slow, but improves quality.
-#define ENCODE_P2 (QUALITY == 1)
+#define ENCODE_P2 1
 
 // Improve quality at small performance loss
 #define INSET_COLOR_BBOX 1
@@ -16,16 +16,21 @@
 
 static const float HALF_MAX = 65504.0f;
 static const uint PATTERN_NUM = 32;
-struct PushConstants {
-	uint2 TextureSizeInBlocks;
-};
-// We need a ConstantBuffer here as a workaround for
-// https://github.com/KhronosGroup/glslang/issues/1629.
-[[vk::push_constant]] ConstantBuffer<PushConstants> push_constants;
 
 [[vk::binding(0, 0)]] Texture2D SrcTexture;
 [[vk::binding(1, 0)]] SamplerState PointSampler;
 [[vk::binding(2, 0)]] RWStructuredBuffer<uint4> buffer;
+struct Constants {
+	uint2 TextureSizeInBlocks;
+};
+#if PUSH_CONSTANTS
+	// We need a ConstantBuffer here as a workaround for
+	// https://github.com/KhronosGroup/glslang/issues/1629.
+	[[vk::push_constant]] ConstantBuffer<Constants> constants;
+#else
+	[[vk::binding(3, 0)]] ConstantBuffer<Constants> constants;
+#endif
+
 
 float CalcMSLE(float3 a, float3 b)
 {
@@ -705,7 +710,7 @@ void main(uint3 groupID : SV_GroupID,
 {
 	uint2 blockCoord = dispatchThreadID.xy;
 
-	if (all(blockCoord < push_constants.TextureSizeInBlocks)) {
+	if (all(blockCoord < constants.TextureSizeInBlocks)) {
 		int2 xy = blockCoord * 4;
 
 		// Fetch texels for current 4x4 block
@@ -756,7 +761,7 @@ void main(uint3 groupID : SV_GroupID,
 		EncodeP2Pattern(block, blockMSLE, bestPattern, texels);
 #endif
 
-		uint index = blockCoord.x + blockCoord.y * push_constants.TextureSizeInBlocks.x;
+		uint index = blockCoord.x + blockCoord.y * constants.TextureSizeInBlocks.x;
 		buffer[index] = block;
 	}
 }
