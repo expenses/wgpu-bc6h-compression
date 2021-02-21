@@ -101,10 +101,12 @@ impl Compressor2D {
         debug_assert_eq!(params.extent.height % 4, 0);
         debug_assert_eq!(params.extent.depth, 1);
 
+        let constants = [width_in_blocks, height_in_blocks];
+
         #[cfg(not(feature = "push_constants"))]
         let compute_contant_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
-            contents: bytemuck::bytes_of(&[width_in_blocks, height_in_blocks]),
+            contents: bytemuck::bytes_of(&constants),
             usage: wgpu::BufferUsage::UNIFORM,
         });
 
@@ -137,8 +139,7 @@ impl Compressor2D {
         compute_pass.set_pipeline(&self.pipeline);
         compute_pass.set_bind_group(0, &bind_group, &[]);
         #[cfg(feature = "push_constants")]
-        compute_pass
-            .set_push_constants(0, bytemuck::bytes_of(&[width_in_blocks, height_in_blocks]));
+        compute_pass.set_push_constants(0, bytemuck::bytes_of(&constants));
         compute_pass.dispatch(
             dispatch_count(width_in_blocks, 8),
             dispatch_count(height_in_blocks, 8),
@@ -295,10 +296,12 @@ impl Compressor3D {
         debug_assert_eq!(params.extent.height % 4, 0);
         let depth = params.extent.depth;
 
+        let constants = [width_in_blocks, height_in_blocks, depth];
+
         #[cfg(not(feature = "push_constants"))]
         let compute_contant_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
-            contents: bytemuck::bytes_of(&[width_in_blocks, height_in_blocks, depth]),
+            contents: bytemuck::bytes_of(&constants),
             usage: wgpu::BufferUsage::UNIFORM,
         });
 
@@ -331,8 +334,7 @@ impl Compressor3D {
         compute_pass.set_pipeline(&self.pipeline);
         compute_pass.set_bind_group(0, &bind_group, &[]);
         #[cfg(feature = "push_constants")]
-        compute_pass
-            .set_push_constants(0, bytemuck::bytes_of(&[width_in_blocks, height_in_blocks]));
+        compute_pass.set_push_constants(0, bytemuck::bytes_of(&constants));
         compute_pass.dispatch(
             dispatch_count(width_in_blocks, 4),
             dispatch_count(height_in_blocks, 4),

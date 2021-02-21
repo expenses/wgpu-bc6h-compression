@@ -23,7 +23,8 @@ them into [RenderDoc].
 - Requires no [`wgpu::Features`], not even
 [`wgpu::Features::TEXTURE_COMPRESSION_BC`] if you simply copy the buffer to a
 file as in the example.
-- Can use push constants with the `push_constant` feature.
+- Can use push constants instead of allocating a uniform buffer with the
+`push_constant` feature.
 - Can compress 2D and 3D textures.
 
 ## Unsupported
