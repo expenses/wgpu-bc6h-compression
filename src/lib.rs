@@ -112,11 +112,7 @@ impl Compressor2D {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(
-                        &params
-                            .texture
-                            .create_view(&wgpu::TextureViewDescriptor::default()),
-                    ),
+                    resource: wgpu::BindingResource::TextureView(params.texture),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -308,11 +304,7 @@ impl Compressor3D {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(
-                        &params
-                            .texture
-                            .create_view(&wgpu::TextureViewDescriptor::default()),
-                    ),
+                    resource: wgpu::BindingResource::TextureView(params.texture),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -397,7 +389,7 @@ impl Compressor3D {
 
 pub struct CompressionParams<'a> {
     pub bind_group_label: Option<&'a str>,
-    pub texture: &'a wgpu::Texture,
+    pub texture: &'a wgpu::TextureView,
     pub sampler: &'a wgpu::Sampler,
     pub extent: wgpu::Extent3d,
 }

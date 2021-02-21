@@ -49,19 +49,21 @@ fn main() {
 
     let texture_data = dds.get_data(0).unwrap();
 
-    let texture = device.create_texture_with_data(
-        &queue,
-        &wgpu::TextureDescriptor {
-            label: Some("uncompressed texture"),
-            size: extent,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba32Float,
-            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
-        },
-        &texture_data,
-    );
+    let texture_view = device
+        .create_texture_with_data(
+            &queue,
+            &wgpu::TextureDescriptor {
+                label: Some("uncompressed texture"),
+                size: extent,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba32Float,
+                usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+            },
+            &texture_data,
+        )
+        .create_view(&wgpu::TextureViewDescriptor::default());
 
     let compressor_2d = Compressor2D::new(&device);
 
@@ -80,10 +82,10 @@ fn main() {
     compressor_2d.compress_to_buffer(
         &device,
         &mut command_encoder,
-        &mut CompressionParams {
+        &CompressionParams {
             bind_group_label: None,
             sampler: &sampler,
-            texture: &texture,
+            texture: &texture_view,
             extent,
         },
         &target_buffer,
