@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 bytemuck = "1.5.1"
-wgpu = "0.7.0"
+wgpu = { git = "https://github.com/gfx-rs/wgpu-rs", rev = "ab8b0e3766558d541206da2790dfd63f15b13bc4" }
 
 [dev-dependencies]
 ddsfile = "0.4.0"

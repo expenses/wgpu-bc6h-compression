@@ -76,8 +76,10 @@ impl Compressor2D {
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("wgpu-bc6h-compression 2d pipeline"),
             layout: Some(&pipeline_layout),
-            module: &shader,
-            entry_point: "main",
+            compute_stage: wgpu::ProgrammableStageDescriptor {
+                module: &shader,
+                entry_point: "main",
+            },
         });
 
         Self {
@@ -272,8 +274,10 @@ impl Compressor3D {
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("wgpu-bc6h-compression 3d pipeline"),
             layout: Some(&pipeline_layout),
-            module: &shader,
-            entry_point: "main",
+            compute_stage: wgpu::ProgrammableStageDescriptor {
+                module: &shader,
+                entry_point: "main",
+            },
         });
 
         Self {
