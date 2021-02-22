@@ -1,5 +1,4 @@
-use wgpu::util::DeviceExt;
-use wgpu_bc6h_compression::{CompressionParams, Compressor2D};
+use wgpu_bc6h_compression::{CompressionParams, Compressor2D, Compressor3D};
 
 fn main() {
     let mut args = std::env::args().skip(1);
@@ -12,7 +11,8 @@ fn main() {
         dds.get_dxgi_format(),
         Some(ddsfile::DxgiFormat::R32G32B32A32_Float)
     );
-    assert_eq!(dds.get_depth(), 1);
+
+    let is_3d = dds.get_depth() > 1;
 
     let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
 
@@ -31,7 +31,7 @@ fn main() {
 
             limits: wgpu::Limits {
                 #[cfg(feature = "push_constants")]
-                max_push_constant_size: 8,
+                max_push_constant_size: if is_3d { 12 } else { 8 },
                 ..Default::default()
             },
         },
@@ -44,10 +44,15 @@ fn main() {
     let extent = wgpu::Extent3d {
         width: dds.get_width(),
         height: dds.get_height(),
-        depth: 1,
+        depth: dds.get_depth(),
     };
 
     let texture_data = dds.get_data(0).unwrap();
+
+    /*
+    Waiting on https://github.com/gfx-rs/wgpu-rs/pull/771 to be able to do this.
+
+    use wgpu::util::DeviceExt;
 
     let texture_view = device
         .create_texture_with_data(
@@ -57,20 +62,51 @@ fn main() {
                 size: extent,
                 mip_level_count: 1,
                 sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
+                dimension: if is_3d {
+                    wgpu::TextureDimension::D3
+                } else {
+                    wgpu::TextureDimension::D2
+                },
                 format: wgpu::TextureFormat::Rgba32Float,
                 usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
             },
             &texture_data,
         )
         .create_view(&wgpu::TextureViewDescriptor::default());
+    */
 
-    let compressor_2d = Compressor2D::new(&device);
+    let texture = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("uncompressed texture"),
+        size: extent,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: if is_3d {
+            wgpu::TextureDimension::D3
+        } else {
+            wgpu::TextureDimension::D2
+        },
+        format: wgpu::TextureFormat::Rgba32Float,
+        usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+    });
 
-    let mut command_encoder =
-        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    queue.write_texture(
+        wgpu::TextureCopyView {
+            texture: &texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+        },
+        &texture_data,
+        wgpu::TextureDataLayout {
+            offset: 0,
+            bytes_per_row: extent.width * 16,
+            rows_per_image: extent.height,
+        },
+        extent,
+    );
 
-    let buffer_size = extent.width as u64 * extent.height as u64;
+    let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+    let buffer_size = extent.width as u64 * extent.height as u64 * extent.depth as u64;
 
     let target_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: None,
@@ -79,17 +115,31 @@ fn main() {
         mapped_at_creation: false,
     });
 
-    compressor_2d.compress_to_buffer(
-        &device,
-        &mut command_encoder,
-        &CompressionParams {
-            bind_group_label: None,
-            sampler: &sampler,
-            texture: &texture_view,
-            extent,
-        },
-        &target_buffer,
-    );
+    let mut command_encoder =
+        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+    let params = CompressionParams {
+        bind_group_label: None,
+        sampler: &sampler,
+        texture: &texture_view,
+        extent,
+    };
+
+    if is_3d {
+        Compressor3D::new(&device).compress_to_buffer(
+            &device,
+            &mut command_encoder,
+            &params,
+            &target_buffer,
+        );
+    } else {
+        Compressor2D::new(&device).compress_to_buffer(
+            &device,
+            &mut command_encoder,
+            &params,
+            &target_buffer,
+        );
+    }
 
     let mappable_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: None,
@@ -115,7 +165,7 @@ fn main() {
     let mut compressed_dds = ddsfile::Dds::new_dxgi(
         extent.height,
         extent.width,
-        None,
+        if is_3d { Some(extent.depth) } else { None },
         ddsfile::DxgiFormat::BC6H_UF16,
         None,
         None,

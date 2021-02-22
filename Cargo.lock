@@ -155,9 +155,8 @@ dependencies = [
 
 [[package]]
 name = "ddsfile"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34f357e96445b4238418b6f4f2b5a956ac1306f89f01d68b85a2d81de3a7cab9"
+version = "0.5.0-unstable"
+source = "git+https://github.com/expenses/ddsfile?branch=include-depth-in-linear-size#5ce64c2a4e53e4088246498b7a4e34690304ca1a"
 dependencies = [
  "bitflags",
  "byteorder",
