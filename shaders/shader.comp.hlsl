@@ -7,23 +7,33 @@
 
 // Improve quality at small performance loss
 #define INSET_COLOR_BBOX 1
-// Needs to be off for some reason.
-#define OPTIMIZE_ENDPOINTS 0
+// We can't enable both of these for some reason?
+#define OPTIMIZE_ENDPOINTS_P1 1
+#define OPTIMIZE_ENDPOINTS_P2 0
 
 // Whether to optimize for luminance error or for RGB error
 #define LUMINANCE_WEIGHTS 1
 
-
 static const float HALF_MAX = 65504.0f;
 static const uint PATTERN_NUM = 32;
 
-[[vk::binding(0, 0)]] Texture2D SrcTexture;
+#if COMPRESS_3D
+	[[vk::binding(0, 0)]] Texture3D SrcTexture;
+
+	struct Constants {
+		uint3 TextureSizeInBlocks;
+	};
+#else
+	[[vk::binding(0, 0)]] Texture2D SrcTexture;
+
+	struct Constants {
+		uint2 TextureSizeInBlocks;
+	};
+#endif
+
 [[vk::binding(1, 0)]] SamplerState PointSampler;
 [[vk::binding(2, 0)]] RWStructuredBuffer<uint4> buffer;
 
-struct Constants {
-	uint2 TextureSizeInBlocks;
-};
 #if PUSH_CONSTANTS
 	// We need a ConstantBuffer here as a workaround for
 	// https://github.com/KhronosGroup/glslang/issues/1629.
@@ -313,7 +323,7 @@ void EncodeP1(inout uint4 block, inout float blockMSLE, float3 texels[16])
 	InsetColorBBoxP1(texels, blockMin, blockMax);
 #endif
 
-#if OPTIMIZE_ENDPOINTS
+#if OPTIMIZE_ENDPOINTS_P1
 	OptimizeEndpointsP1(texels, blockMin, blockMax);
 #endif
 
@@ -468,7 +478,7 @@ void EncodeP2Pattern(inout uint4 block, inout float blockMSLE, int pattern, floa
 	//InsetColorBBoxP2(texels, pattern, 1, p1BlockMin, p1BlockMax);
 #endif
 
-#if OPTIMIZE_ENDPOINTS
+#if OPTIMIZE_ENDPOINTS_P2
 	OptimizeEndpointsP2(texels, pattern, 0, p0BlockMin, p0BlockMax);
 	OptimizeEndpointsP2(texels, pattern, 1, p1BlockMin, p1BlockMax);
 #endif
@@ -703,6 +713,75 @@ void EncodeP2Pattern(inout uint4 block, inout float blockMSLE, int pattern, floa
 	}
 }
 
+#if COMPRESS_3D
+
+[numthreads(4, 4, 4)]
+void main(uint3 groupID : SV_GroupID,
+	uint3 dispatchThreadID : SV_DispatchThreadID,
+	uint3 groupThreadID : SV_GroupThreadID)
+{
+	uint3 blockCoord = dispatchThreadID;
+
+	if (all(blockCoord < constants.TextureSizeInBlocks)) {
+		int2 xy = blockCoord.xy * 4;
+		int z = blockCoord.z;
+
+		// Fetch texels for current 4x4 block
+		// 0 1 2 3
+		// 4 5 6 7
+		// 8 9 10 11
+		// 12 13 14 15
+		float3 texels[16];
+		texels[0] =  SrcTexture.Load(int4(xy + int2(0, 0), z, 0));
+		texels[1] =  SrcTexture.Load(int4(xy + int2(1, 0), z, 0));
+		texels[2] =  SrcTexture.Load(int4(xy + int2(2, 0), z, 0));
+		texels[3] =  SrcTexture.Load(int4(xy + int2(3, 0), z, 0));
+		texels[4] =  SrcTexture.Load(int4(xy + int2(0, 1), z, 0));
+		texels[5] =  SrcTexture.Load(int4(xy + int2(1, 1), z, 0));
+		texels[6] =  SrcTexture.Load(int4(xy + int2(2, 1), z, 0));
+		texels[7] =  SrcTexture.Load(int4(xy + int2(3, 1), z, 0));
+		texels[8] =  SrcTexture.Load(int4(xy + int2(0, 2), z, 0));
+		texels[9] =  SrcTexture.Load(int4(xy + int2(1, 2), z, 0));
+		texels[10] = SrcTexture.Load(int4(xy + int2(2, 2), z, 0));
+		texels[11] = SrcTexture.Load(int4(xy + int2(3, 2), z, 0));
+		texels[12] = SrcTexture.Load(int4(xy + int2(0, 3), z, 0));
+		texels[13] = SrcTexture.Load(int4(xy + int2(1, 3), z, 0));
+		texels[14] = SrcTexture.Load(int4(xy + int2(2, 3), z, 0));
+		texels[15] = SrcTexture.Load(int4(xy + int2(3, 3), z, 0));
+
+		uint4 block = uint4(0, 0, 0, 0);
+		float blockMSLE = 0.0f;
+
+		EncodeP1(block, blockMSLE, texels);
+
+#if ENCODE_P2
+		// First find pattern which is a best fit for a current block
+		float bestScore = EvaluateP2Pattern(0, texels);
+		uint bestPattern = 0;
+
+		for (uint patternIndex = 1; patternIndex < 32; ++patternIndex)
+		{
+			float score = EvaluateP2Pattern(patternIndex, texels);
+			if (score < bestScore)
+			{
+				bestPattern = patternIndex;
+				bestScore = score;
+			}
+		}
+
+		// Then encode it
+		EncodeP2Pattern(block, blockMSLE, bestPattern, texels);
+#endif
+
+		uint width = constants.TextureSizeInBlocks.x;
+		uint height = constants.TextureSizeInBlocks.y;
+		uint index = blockCoord.x + blockCoord.y * width + blockCoord.z * (width * height);
+		buffer[index] = block;
+	}
+}
+
+#else
+
 [numthreads(8, 8, 1)]
 void main(uint3 groupID : SV_GroupID,
 	uint3 dispatchThreadID : SV_DispatchThreadID,
@@ -765,3 +844,5 @@ void main(uint3 groupID : SV_GroupID,
 		buffer[index] = block;
 	}
 }
+
+#endif
