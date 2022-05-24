@@ -2,17 +2,18 @@
 name = "wgpu-bc6h-compression"
 version = "0.1.0"
 authors = ["Ashley Ruglys <ashley.ruglys@gmail.com>"]
-edition = "2018"
+edition = "2021"
+resolver = "2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytemuck = "1.5.1"
-wgpu = "0.7.0"
+bytemuck = "1.9.1"
+wgpu = { version = "0.12.0", features = ["spirv"] }
 
 [dev-dependencies]
-ddsfile = { git = "https://github.com/expenses/ddsfile", branch = "include-depth-in-linear-size" }
-pollster = "0.2.1"
+ddsfile = "0.5.1"
+pollster = "0.2.5"
 
 [features]
 push_constants = []

@@ -20,7 +20,7 @@ impl Compressor2D {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStage::COMPUTE,
+                    visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Texture {
                         sample_type: wgpu::TextureSampleType::Float { filterable: false },
                         view_dimension: wgpu::TextureViewDimension::D2,
@@ -30,16 +30,13 @@ impl Compressor2D {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: wgpu::ShaderStage::COMPUTE,
-                    ty: wgpu::BindingType::Sampler {
-                        comparison: false,
-                        filtering: false,
-                    },
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
                     count: None,
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
-                    visibility: wgpu::ShaderStage::COMPUTE,
+                    visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage { read_only: false },
                         has_dynamic_offset: false,
@@ -50,7 +47,7 @@ impl Compressor2D {
                 #[cfg(not(feature = "push_constants"))]
                 wgpu::BindGroupLayoutEntry {
                     binding: 3,
-                    visibility: wgpu::ShaderStage::COMPUTE,
+                    visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -67,7 +64,7 @@ impl Compressor2D {
             push_constant_ranges: &[
                 #[cfg(feature = "push_constants")]
                 wgpu::PushConstantRange {
-                    stages: wgpu::ShaderStage::COMPUTE,
+                    stages: wgpu::ShaderStages::COMPUTE,
                     range: 0..std::mem::size_of::<[u32; 2]>() as u32,
                 },
             ],
@@ -97,7 +94,7 @@ impl Compressor2D {
         let height_in_blocks = params.extent.height / 4;
         debug_assert_eq!(params.extent.width % 4, 0);
         debug_assert_eq!(params.extent.height % 4, 0);
-        debug_assert_eq!(params.extent.depth, 1);
+        debug_assert_eq!(params.extent.depth_or_array_layers, 1);
 
         let constants = [width_in_blocks, height_in_blocks];
 
@@ -105,7 +102,7 @@ impl Compressor2D {
         let compute_contant_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::bytes_of(&constants),
-            usage: wgpu::BufferUsage::UNIFORM,
+            usage: wgpu::BufferUsages::UNIFORM,
         });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -155,7 +152,7 @@ impl Compressor2D {
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
             size: params.extent.width as u64 * params.extent.height as u64,
-            usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_SRC,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
 
@@ -168,24 +165,27 @@ impl Compressor2D {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Bc6hRgbUfloat,
-            usage: texture_params.usage | wgpu::TextureUsage::COPY_DST,
+            usage: texture_params.usage | wgpu::TextureUsages::COPY_DST,
         });
 
         command_encoder.copy_buffer_to_texture(
-            wgpu::BufferCopyView {
+            wgpu::ImageCopyBuffer {
                 buffer: &buffer,
-                layout: wgpu::TextureDataLayout {
+                layout: wgpu::ImageDataLayout {
                     offset: 0,
                     // width / 4 (because a block contains 4 pixels horizontally) * 16 (the block size)
                     // confusing, I know.
-                    bytes_per_row: params.extent.width * 4,
-                    rows_per_image: params.extent.height,
+                    bytes_per_row: Some(
+                        std::num::NonZeroU32::new(params.extent.width * 4).unwrap(),
+                    ),
+                    rows_per_image: Some(std::num::NonZeroU32::new(params.extent.height).unwrap()),
                 },
             },
-            wgpu::TextureCopyView {
+            wgpu::ImageCopyTexture {
                 texture: &texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
             },
             params.extent,
         );
@@ -213,7 +213,7 @@ impl Compressor3D {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStage::COMPUTE,
+                    visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Texture {
                         sample_type: wgpu::TextureSampleType::Float { filterable: false },
                         view_dimension: wgpu::TextureViewDimension::D3,
@@ -223,16 +223,13 @@ impl Compressor3D {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: wgpu::ShaderStage::COMPUTE,
-                    ty: wgpu::BindingType::Sampler {
-                        comparison: false,
-                        filtering: false,
-                    },
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
                     count: None,
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
-                    visibility: wgpu::ShaderStage::COMPUTE,
+                    visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage { read_only: false },
                         has_dynamic_offset: false,
@@ -243,7 +240,7 @@ impl Compressor3D {
                 #[cfg(not(feature = "push_constants"))]
                 wgpu::BindGroupLayoutEntry {
                     binding: 3,
-                    visibility: wgpu::ShaderStage::COMPUTE,
+                    visibility: wgpu::ShaderStages::COMPUTE,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -260,7 +257,7 @@ impl Compressor3D {
             push_constant_ranges: &[
                 #[cfg(feature = "push_constants")]
                 wgpu::PushConstantRange {
-                    stages: wgpu::ShaderStage::COMPUTE,
+                    stages: wgpu::ShaderStages::COMPUTE,
                     range: 0..std::mem::size_of::<[u32; 3]>() as u32,
                 },
             ],
@@ -290,7 +287,7 @@ impl Compressor3D {
         let height_in_blocks = params.extent.height / 4;
         debug_assert_eq!(params.extent.width % 4, 0);
         debug_assert_eq!(params.extent.height % 4, 0);
-        let depth = params.extent.depth;
+        let depth = params.extent.depth_or_array_layers;
 
         let constants = [width_in_blocks, height_in_blocks, depth];
 
@@ -298,7 +295,7 @@ impl Compressor3D {
         let compute_contant_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::bytes_of(&constants),
-            usage: wgpu::BufferUsage::UNIFORM,
+            usage: wgpu::BufferUsages::UNIFORM,
         });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -349,8 +346,8 @@ impl Compressor3D {
             label: None,
             size: params.extent.width as u64
                 * params.extent.height as u64
-                * params.extent.depth as u64,
-            usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_SRC,
+                * params.extent.depth_or_array_layers as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
 
@@ -363,24 +360,27 @@ impl Compressor3D {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D3,
             format: wgpu::TextureFormat::Bc6hRgbUfloat,
-            usage: texture_params.usage | wgpu::TextureUsage::COPY_DST,
+            usage: texture_params.usage | wgpu::TextureUsages::COPY_DST,
         });
 
         command_encoder.copy_buffer_to_texture(
-            wgpu::BufferCopyView {
+            wgpu::ImageCopyBuffer {
                 buffer: &buffer,
-                layout: wgpu::TextureDataLayout {
+                layout: wgpu::ImageDataLayout {
                     offset: 0,
                     // width / 4 (because a block contains 4 pixels horizontally) * 16 (the block size)
                     // confusing, I know.
-                    bytes_per_row: params.extent.width * 4,
-                    rows_per_image: params.extent.height,
+                    bytes_per_row: Some(
+                        std::num::NonZeroU32::new(params.extent.width * 4).unwrap(),
+                    ),
+                    rows_per_image: Some(std::num::NonZeroU32::new(params.extent.height).unwrap()),
                 },
             },
-            wgpu::TextureCopyView {
+            wgpu::ImageCopyTexture {
                 texture: &texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
             },
             params.extent,
         );
@@ -398,7 +398,7 @@ pub struct CompressionParams<'a> {
 
 pub struct TextureParams<'a> {
     pub label: Option<&'a str>,
-    pub usage: wgpu::TextureUsage,
+    pub usage: wgpu::TextureUsages,
 }
 
 fn dispatch_count(num: u32, group_size: u32) -> u32 {

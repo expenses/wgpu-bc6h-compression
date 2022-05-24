@@ -14,7 +14,7 @@ fn main() {
 
     let is_3d = dds.get_depth() > 1;
 
-    let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+    let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
 
     let adapter =
         pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))
@@ -44,13 +44,10 @@ fn main() {
     let extent = wgpu::Extent3d {
         width: dds.get_width(),
         height: dds.get_height(),
-        depth: dds.get_depth(),
+        depth_or_array_layers: dds.get_depth(),
     };
 
     let texture_data = dds.get_data(0).unwrap();
-
-    /*
-    Waiting on https://github.com/gfx-rs/wgpu-rs/pull/771 to be able to do this.
 
     use wgpu::util::DeviceExt;
 
@@ -68,50 +65,19 @@ fn main() {
                     wgpu::TextureDimension::D2
                 },
                 format: wgpu::TextureFormat::Rgba32Float,
-                usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             },
             &texture_data,
         )
         .create_view(&wgpu::TextureViewDescriptor::default());
-    */
 
-    let texture = device.create_texture(&wgpu::TextureDescriptor {
-        label: Some("uncompressed texture"),
-        size: extent,
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: if is_3d {
-            wgpu::TextureDimension::D3
-        } else {
-            wgpu::TextureDimension::D2
-        },
-        format: wgpu::TextureFormat::Rgba32Float,
-        usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
-    });
-
-    queue.write_texture(
-        wgpu::TextureCopyView {
-            texture: &texture,
-            mip_level: 0,
-            origin: wgpu::Origin3d::ZERO,
-        },
-        &texture_data,
-        wgpu::TextureDataLayout {
-            offset: 0,
-            bytes_per_row: extent.width * 16,
-            rows_per_image: extent.height,
-        },
-        extent,
-    );
-
-    let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-    let buffer_size = extent.width as u64 * extent.height as u64 * extent.depth as u64;
+    let buffer_size =
+        extent.width as u64 * extent.height as u64 * extent.depth_or_array_layers as u64;
 
     let target_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: None,
         size: buffer_size,
-        usage: wgpu::BufferUsage::STORAGE | wgpu::BufferUsage::COPY_SRC,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
 
@@ -144,7 +110,7 @@ fn main() {
     let mappable_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: None,
         size: buffer_size,
-        usage: wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::MAP_READ,
+        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
         mapped_at_creation: false,
     });
 
@@ -162,18 +128,22 @@ fn main() {
 
     let bytes = slice.get_mapped_range();
 
-    let mut compressed_dds = ddsfile::Dds::new_dxgi(
-        extent.height,
-        extent.width,
-        if is_3d { Some(extent.depth) } else { None },
-        ddsfile::DxgiFormat::BC6H_UF16,
-        None,
-        None,
-        None,
-        false,
-        ddsfile::D3D10ResourceDimension::Texture2D,
-        ddsfile::AlphaMode::Unknown,
-    )
+    let mut compressed_dds = ddsfile::Dds::new_dxgi(ddsfile::NewDxgiParams {
+        width: extent.height,
+        height: extent.width,
+        depth: if is_3d {
+            Some(extent.depth_or_array_layers)
+        } else {
+            None
+        },
+        format: ddsfile::DxgiFormat::BC6H_UF16,
+        mipmap_levels: None,
+        array_layers: None,
+        is_cubemap: false,
+        caps2: None,
+        resource_dimension: ddsfile::D3D10ResourceDimension::Texture2D,
+        alpha_mode: ddsfile::AlphaMode::Unknown,
+    })
     .unwrap();
 
     compressed_dds
