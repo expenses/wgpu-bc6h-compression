@@ -289,7 +289,7 @@ impl Compressor3D {
         debug_assert_eq!(params.extent.height % 4, 0);
         let depth = params.extent.depth_or_array_layers;
 
-        let constants = [width_in_blocks, height_in_blocks, depth];
+        let constants = [width_in_blocks, height_in_blocks, depth, 0];
 
         #[cfg(not(feature = "push_constants"))]
         let compute_contant_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
