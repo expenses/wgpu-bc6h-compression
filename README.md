@@ -6,6 +6,10 @@ floating-point textures into [BC6H] compressed textures, reducing their size by
 
 For more information, see the presentation [Real-Time BC6H Compression on GPU].
 
+## Offline compression
+
+For a slower but higher quality offline [BC6H] compression library, I hightly recommend [`intel-tex-rs-2`].
+
 ## Example
 
 For a example, run:
@@ -43,3 +47,4 @@ file as in the example.
 [`Rgba32Float`]: https://docs.rs/wgpu/0.7.0/wgpu/enum.TextureFormat.html#variant.Rgba32Float
 [`Bc6hRgbUFloat`]: https://docs.rs/wgpu/0.7.0/wgpu/enum.TextureFormat.html#variant.Bc6hRgbUfloat
 [`Bc6hRgbSFloat`]: https://docs.rs/wgpu/0.7.0/wgpu/enum.TextureFormat.html#variant.Bc6hRgbSfloat
+[`intel-tex-rs-2`]: https://github.com/Traverse-Research/intel-tex-rs-2
